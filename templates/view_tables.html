@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}צפייה בטבלאות - מערכת ניהול משלוחי מנות{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-table"></i> צפייה בטבלאות
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">טבלאות</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for table in tables %}
+                <a href="#" class="list-group-item list-group-item-action table-link" 
+                   data-table="{{ table['name'] }}">
+                    <i class="fas fa-table me-2"></i> {{ table['name'] }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0" id="tableName">בחר טבלה מהרשימה</h5>
+                <div>
+                    <input type="text" class="form-control form-control-sm" id="searchInput" 
+                           placeholder="חיפוש..." style="width: 200px;">
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="tableContainer">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-table fa-3x mb-3"></i>
+                        <p>בחר טבלה כדי להציג את הנתונים</p>
+                    </div>
+                </div>
+                
+                <!-- Pagination -->
+                <nav id="paginationContainer" style="display: none;">
+                    <ul class="pagination justify-content-center" id="pagination"></ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentTable = null;
+let currentPage = 0;
+let limit = 50;
+let searchTimeout = null;
+
+$(document).ready(function() {
+    $('.table-link').click(function(e) {
+        e.preventDefault();
+        currentTable = $(this).data('table');
+        currentPage = 0;
+        loadTableData();
+        
+        // Highlight selected table
+        $('.table-link').removeClass('active');
+        $(this).addClass('active');
+    });
+    
+    $('#searchInput').on('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            currentPage = 0;
+            loadTableData();
+        }, 500);
+    });
+});
+
+function loadTableData() {
+    if (!currentTable) return;
+    
+    const search = $('#searchInput').val();
+    const offset = currentPage * limit;
+    
+    $.ajax({
+        url: `/api/table-data/${currentTable}`,
+        method: 'GET',
+        data: { limit, offset, search },
+        success: function(data) {
+            $('#tableName').text(currentTable);
+            renderTable(data);
+            renderPagination(data);
+        },
+        error: function() {
+            alert('שגיאה בטעינת הנתונים');
+        }
+    });
+}
+
+function renderTable(data) {
+    if (!data.data || data.data.length === 0) {
+        $('#tableContainer').html('<div class="alert alert-warning">אין נתונים להצגה</div>');
+        return;
+    }
+    
+    const columns = Object.keys(data.data[0]);
+    
+    let html = '<div class="table-responsive"><table class="table table-striped table-hover">';
+    html += '<thead class="table-dark"><tr>';
+    
+    columns.forEach(col => {
+        html += `<th>${col}</th>`;
+    });
+    
+    html += '</tr></thead><tbody>';
+    
+    data.data.forEach(row => {
+        html += '<tr>';
+        columns.forEach(col => {
+            let value = row[col];
+            if (value === null) value = '<span class="text-muted">NULL</span>';
+            if (typeof value === 'boolean') value = value ? '✓' : '✗';
+            html += `<td>${value}</td>`;
+        });
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    $('#tableContainer').html(html);
+}
+
+function renderPagination(data) {
+    const totalPages = Math.ceil(data.total / limit);
+    
+    if (totalPages <= 1) {
+        $('#paginationContainer').hide();
+        return;
+    }
+    
+    $('#paginationContainer').show();
+    let html = '';
+    
+    // Previous button
+    html += `<li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">הקודם</a>
+             </li>`;
+    
+    // Page numbers
+    for (let i = 0; i < Math.min(totalPages, 10); i++) {
+        html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i + 1}</a>
+                 </li>`;
+    }
+    
+    // Next button
+    html += `<li class="page-item ${currentPage >= totalPages - 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">הבא</a>
+             </li>`;
+    
+    $('#pagination').html(html);
+}
+
+function changePage(page) {
+    event.preventDefault();
+    currentPage = page;
+    loadTableData();
+}
+</script>
+{% endblock %}

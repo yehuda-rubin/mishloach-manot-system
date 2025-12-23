@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}העלאת תושבים - מערכת ניהול משלוחי מנות{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-upload"></i> העלאת תושבים
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-upload"></i> העלאת קובץ תושבים
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">בחר קובץ CSV או Excel</label>
+                        <input type="file" class="form-control" id="file" name="file" 
+                               accept=".csv,.xlsx,.xls" required>
+                        <div class="form-text">
+                            קבצים נתמכים: CSV, XLSX, XLS (עד 16MB)
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle"></i> דרישות הקובץ
+                        </h6>
+                        <p class="mb-2">הקובץ חייב לכלול את העמודות הבאות:</p>
+                        <ul class="mb-0">
+                            <li><code>code</code> - קוד תושב (אופציונלי)</li>
+                            <li><code>lastname</code> - שם משפחה</li>
+                            <li><code>father_name</code> - שם האב</li>
+                            <li><code>mother_name</code> - שם האם</li>
+                            <li><code>streetname</code> - שם רחוב</li>
+                            <li><code>buildingnumber</code> - מספר בניין</li>
+                            <li><code>entrance</code> - כניסה</li>
+                            <li><code>apartmentnumber</code> - מספר דירה</li>
+                            <li><code>phone</code> - טלפון</li>
+                            <li><code>mobile</code> - נייד</li>
+                            <li><code>mobile2</code> - נייד 2 (אופציונלי)</li>
+                            <li><code>email</code> - דוא"ל (אופציונלי)</li>
+                            <li><code>standing_order</code> - דרגת הזמנה קבועה (0-3)</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-upload"></i> העלה קובץ
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-right"></i> חזור ללוח בקרה
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle"></i> עזרה
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>תהליך העלאת התושבים:</h6>
+                <ol>
+                    <li>בחר קובץ CSV או Excel</li>
+                    <li>הקובץ יעלה למערכת</li>
+                    <li>הנתונים יעברו ניקוי אוטומטי</li>
+                    <li>טלפונים ירכאו לפורמט ישראלי</li>
+                    <li>רחובות חדשים יירשמו בלוג</li>
+                    <li>תושבים קיימים יאוחדו אוטומטית</li>
+                </ol>
+                
+                <h6 class="mt-3">התאמת תושבים:</h6>
+                <p>המערכת תזהה אוטומטית:</p>
+                <ul>
+                    <li><strong>התאמה מלאה:</strong> שם + כתובת + טלפון</li>
+                    <li><strong>התאמה חלקית:</strong> טלפון או כתובת</li>
+                    <li><strong>תושב חדש:</strong> נוסף למערכת</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-download"></i> קובץ דוגמה
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                <p>הורד קובץ דוגמה לעיון:</p>
+                <a href="/static/examples/residents_example.csv" class="btn btn-success" download>
+                    <i class="fas fa-file-csv"></i> הורד דוגמה
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

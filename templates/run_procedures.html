@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}הרצת פרוצדורות - מערכת ניהול משלוחי מנות{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-cogs"></i> הרצת פרוצדורות
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-play"></i> הרץ פונקציה
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="procedureForm">
+                    <div class="mb-3">
+                        <label for="function_name" class="form-label">בחר פונקציה</label>
+                        <select class="form-select" id="function_name" name="function_name" required>
+                            <option value="">-- בחר פונקציה --</option>
+                            {% for func in functions %}
+                            <option value="{{ func['name'] }}">{{ func['name'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div id="parametersContainer" class="mb-3" style="display: none;">
+                        <h6>פרמטרים:</h6>
+                        <div id="parametersList"></div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-play"></i> הרץ פונקציה
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-right"></i> חזור ללוח בקרה
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> פונקציות נפוצות
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>עיבוד תושבים:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-chevron-left text-primary"></i> <code>raw_to_temp_stage</code></li>
+                    <li><i class="fas fa-chevron-left text-primary"></i> <code>process_residents_csv</code></li>
+                </ul>
+                
+                <h6 class="mt-3">עיבוד הזמנות:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-chevron-left text-success"></i> <code>distribute_all_outer_orders</code></li>
+                    <li><i class="fas fa-chevron-left text-success"></i> <code>apply_autoreturn_from_outer</code></li>
+                </ul>
+                
+                <h6 class="mt-3">כלי עזר:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-chevron-left text-warning"></i> <code>format_il_phone</code></li>
+                    <li><i class="fas fa-chevron-left text-warning"></i> <code>validate_residents_import</code></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> אזהרה
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">
+                    חלק מהפונקציות משנות נתונים במסד הנתונים.
+                    ודא שאתה מבין מה הפונקציה עושה לפני ההרצה.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#function_name').change(function() {
+        const funcName = $(this).val();
+        if (!funcName) {
+            $('#parametersContainer').hide();
+            return;
+        }
+        
+        // Fetch parameters for selected function
+        $.ajax({
+            url: `/api/function-params/${funcName}`,
+            method: 'GET',
+            success: function(data) {
+                if (data.params && data.params.length > 0) {
+                    let html = '';
+                    data.params.forEach(param => {
+                        html += `
+                            <div class="mb-2">
+                                <label class="form-label">${param.parameter_name} (${param.data_type})</label>
+                                <input type="text" class="form-control" 
+                                       name="param_${param.parameter_name}"
+                                       placeholder="${param.parameter_default || ''}">
+                            </div>
+                        `;
+                    });
+                    $('#parametersList').html(html);
+                    $('#parametersContainer').show();
+                } else {
+                    $('#parametersContainer').hide();
+                }
+            },
+            error: function() {
+                $('#parametersContainer').hide();
+                alert('שגיאה בטעינת הפרמטרים');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

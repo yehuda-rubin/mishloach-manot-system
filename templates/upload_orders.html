@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}העלאת הזמנות - מערכת ניהול משלוחי מנות{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-file-upload"></i> העלאת הזמנות
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-upload"></i> העלאת קובץ הזמנות
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">בחר קובץ הזמנות (CSV או Excel)</label>
+                        <input type="file" class="form-control" id="file" name="file" 
+                               accept=".csv,.xlsx,.xls" required>
+                        <div class="form-text">
+                            קבצים נתמכים: CSV, XLSX, XLS (עד 16MB)
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle"></i> דרישות הקובץ
+                        </h6>
+                        <p class="mb-2">הקובץ חייב לכלול את העמודות הבאות:</p>
+                        <ul class="mb-0">
+                            <li><code>order_code</code> - קוד השולח (personid)</li>
+                            <li><code>guest_list</code> - רשימת מוזמנים מופרדת ב-| (למשל: 123|456|789)</li>
+                            <li><code>rating</code> - דרגת המנה (1=סמלי, 2=מכובד, 3=מפואר)</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle"></i> חשוב לדעת
+                        </h6>
+                        <ul class="mb-0">
+                            <li>ההזמנות יופצו רק למוזמנים הקיימים במערכת</li>
+                            <li>מוזמנים שלא קיימים יידלגו</li>
+                            <li>משפחות עם החזרה אוטומטית יקבלו הזמנות חזרה אוטומטית</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-upload"></i> העלה והפץ הזמנות
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-right"></i> חזור ללוח בקרה
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> תהליך ההפצה
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>שלבי הפצת ההזמנות:</h6>
+                <ol>
+                    <li>טעינת הקובץ למערכת</li>
+                    <li>בדיקת קיום השולחים</li>
+                    <li>ניתוח רשימת המוזמנים</li>
+                    <li>בדיקת קיום המוזמנים</li>
+                    <li>יצירת הזמנות</li>
+                    <li>הפעלת החזרה אוטומטית</li>
+                </ol>
+                
+                <h6 class="mt-3">מחירים לפי דרגה:</h6>
+                <table class="table table-sm">
+                    <tr>
+                        <td><strong>סמלי (1)</strong></td>
+                        <td>11 ש"ח</td>
+                    </tr>
+                    <tr>
+                        <td><strong>מכובד (2)</strong></td>
+                        <td>10 ש"ח</td>
+                    </tr>
+                    <tr>
+                        <td><strong>מפואר (3)</strong></td>
+                        <td>9 ש"ח</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-sync-alt"></i> החזרה אוטומטית
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    <strong>אוטומטי:</strong> משפחות המסומנות עם "החזרה אוטומטית"
+                    יקבלו הזמנה חזרה אוטומטית לכל מי ששלח להם.
+                </p>
+                <p class="mb-0">
+                    התכונה מפעילה את עצמה אוטומטית במהלך ההפצה.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

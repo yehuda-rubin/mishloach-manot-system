@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}500 - שגיאת שרת{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 text-center">
+        <div class="card shadow">
+            <div class="card-body py-5">
+                <i class="fas fa-exclamation-circle fa-5x text-danger mb-4"></i>
+                <h1 class="display-1 fw-bold">500</h1>
+                <h3 class="mb-3">שגיאת שרת</h3>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-home"></i> חזור ללוח בקרה
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
