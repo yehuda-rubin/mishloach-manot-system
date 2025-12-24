@@ -24,7 +24,6 @@ def get_db_connection():
     return psycopg2.connect(Config.DATABASE_URL, cursor_factory=RealDictCursor)
 
 
-
 def verify_user(username, password):
     """Verify user credentials"""
     conn = get_db_connection()

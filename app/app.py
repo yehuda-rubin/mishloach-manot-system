@@ -35,12 +35,6 @@ app.config.from_object(Config)
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Add datetime to template context
-@app.context_processor
-def inject_now():
-    """Inject current datetime into all templates"""
-    from datetime import datetime
-    return {'now': datetime.now()}
 
 # Add datetime to template context
 @app.context_processor
@@ -137,6 +131,27 @@ def dashboard():
 @login_required
 def upload_residents():
     """Upload residents CSV/Excel file"""
+    
+    def safe_int(value, default=0):
+        """Safely convert value to int, return default if conversion fails"""
+        if pd.isna(value):
+            return default
+        if isinstance(value, (int, float)):
+            return int(value)
+        if isinstance(value, str):
+            # Try to extract number from string
+            value = value.strip().lower()
+            # Check if it's a "no value" string
+            no_value_strings = ['אין', 'אין דירה', 'ללא', 'ללא דירה', 'none', '']
+            if value in no_value_strings:
+                return default
+            # Try to convert to int
+            try:
+                return int(float(value))
+            except (ValueError, TypeError):
+                return default
+        return default
+    
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('לא נבחר קובץ', 'danger')
@@ -157,6 +172,98 @@ def upload_residents():
                 
                 # Clean column names
                 df.columns = df.columns.str.strip()
+                original_columns = list(df.columns)
+                
+                # Auto-map column names
+                column_mapping = {
+                    # Various forms of lastname
+                    'last_name': 'lastname',
+                    'lastname': 'lastname',
+                    'family_name': 'lastname',
+                    'surname': 'lastname',
+                    
+                    # Various forms of father_name
+                    'father_first_name': 'father_name',
+                    'father_name': 'father_name',
+                    'first_name': 'father_name',
+                    'firstname': 'father_name',
+                    
+                    # Various forms of mother_name
+                    'mother_first_name': 'mother_name',
+                    'mother_name': 'mother_name',
+                    
+                    # Various forms of street
+                    'street': 'streetname',
+                    'streetname': 'streetname',
+                    'street_name': 'streetname',
+                    
+                    # Various forms of building number
+                    'building_number': 'buildingnumber',
+                    'buildingnumber': 'buildingnumber',
+                    'house_number': 'buildingnumber',
+                    'housenumber': 'buildingnumber',
+                    
+                    # Various forms of entrance
+                    'entrance': 'entrance',
+                    'apartment_number': 'entrance',
+                    
+                    # Various forms of apartment number
+                    'apartmentnumber': 'apartmentnumber',
+                    'apartment': 'apartmentnumber',
+                    'flat_number': 'apartmentnumber',
+                    
+                    # Phone numbers
+                    'phone': 'phone',
+                    'home_phone': 'phone',
+                    'homephone': 'phone',
+                    'telephone': 'phone',
+                    
+                    'mobile': 'mobile',
+                    'mobile1': 'mobile',
+                    'cell': 'mobile',
+                    'cellphone': 'mobile',
+                    
+                    'mobile2': 'mobile2',
+                    
+                    # Email
+                    'email': 'email',
+                    'mail': 'email',
+                    
+                    # Code
+                    'code': 'code',
+                    'id': 'code',
+                    
+                    # Standing order
+                    'standing_order': 'standing_order',
+                    'rating': 'standing_order',
+                }
+                
+                # Rename columns based on mapping
+                mapped_columns = {}
+                new_column_names = []
+                for orig_col in df.columns:
+                    mapped_col = column_mapping.get(orig_col.lower(), orig_col)
+                    new_column_names.append(mapped_col)
+                    if mapped_col != orig_col:
+                        mapped_columns[orig_col] = mapped_col
+                
+                df.columns = new_column_names
+                
+                # Log column mapping
+                if mapped_columns:
+                    print("🔄 מיפוי עמודות:")
+                    for orig, mapped in mapped_columns.items():
+                        print(f"   {orig} → {mapped}")
+                
+                # Replace "אין" and empty strings with None
+                replace_values = ['אין', 'אין דירה', 'ללא', 'ללא דירה', 'nan', 'NaN', '', 'None', 'none']
+                for col in df.columns:
+                    if col in ['lastname', 'father_name', 'mother_name', 'streetname', 
+                              'buildingnumber', 'entrance', 'apartmentnumber', 'phone', 'mobile', 'mobile2', 'email']:
+                        df[col] = df[col].replace(replace_values, None)
+                        df[col] = df[col].apply(lambda x: None if pd.isna(x) or 
+                                                 (isinstance(x, str) and x.strip().lower() in [v.lower() for v in replace_values]) 
+                                                 else x)
                 
                 # Connect to database
                 conn = get_db_connection()
@@ -164,6 +271,7 @@ def upload_residents():
                 
                 # Clear raw table
                 cur.execute("TRUNCATE TABLE raw_residents_csv RESTART IDENTITY")
+                conn.commit()
                 
                 # Insert data
                 rows_inserted = 0
@@ -187,18 +295,66 @@ def upload_residents():
                         row.get('mobile'),
                         row.get('mobile2'),
                         row.get('email'),
-                        int(row.get('standing_order', 0)) if pd.notna(row.get('standing_order')) else 0
+                        safe_int(row.get('standing_order', 0))
                     ))
                     rows_inserted += 1
                 
                 conn.commit()
                 
-                # Run ETL process
+                # Show mapping message if any
+                if mapped_columns:
+                    mapping_msg = "🔄 מיפוי עמודות אוטומטי:\n" + "\n".join([f"• {o} → {m}" for o, m in list(mapped_columns.items())[:5]])
+                    if len(mapped_columns) > 5:
+                        mapping_msg += f"\n• ועוד {len(mapped_columns) - 5}..."
+                    flash(mapping_msg, 'info')
+                
+                flash(f'✅ שלב 1: {rows_inserted} שורות נטענו לטבלת raw', 'info')
+                
+                # Run ETL process - Stage 1: raw to temp
+                print("Running raw_to_temp_stage()...")
                 cur.execute("SELECT raw_to_temp_stage()")
-                cur.execute("SELECT process_residents_csv()")
+                result1 = cur.fetchone()
                 conn.commit()
                 
-                flash(f'הקובץ הועלה בהצלחה! {rows_inserted} שורות נטענו ועובדו', 'success')
+                temp_count = result1['raw_to_temp_stage'] if result1 else 0
+                flash(f'✅ שלב 2: {temp_count} שורות הועברו לטבלת temp', 'info')
+                
+                # Run ETL process - Stage 2: temp to person
+                print("Running process_residents_csv()...")
+                cur.execute("SELECT process_residents_csv()")
+                result2 = cur.fetchone()
+                conn.commit()
+                
+                processed_count = result2['process_residents_csv'] if result2 else 0
+                flash(f'✅ שלב 3: {processed_count} תושבים עובדו בהצלחה!', 'success')
+                
+                # Get statistics
+                cur.execute("""
+                    SELECT 
+                        COUNT(*) FILTER (WHERE status = 'הופץ') as inserted,
+                        COUNT(*) FILTER (WHERE status = 'אוחד') as merged,
+                        COUNT(*) FILTER (WHERE status = 'נדחה') as skipped,
+                        COUNT(*) FILTER (WHERE status = 'התאמה חלקית') as partial_match
+                    FROM temp_residents_csv
+                """)
+                stats = cur.fetchone()
+                
+                if stats:
+                    flash(f"""📊 סטטיסטיקות:
+                    • נוספו: {stats['inserted'] or 0}
+                    • אוחדו: {stats['merged'] or 0}
+                    • נדחו: {stats['skipped'] or 0}
+                    • התאמה חלקית: {stats['partial_match'] or 0}
+                    """, 'info')
+                
+                # If many were skipped, show warning
+                if stats and stats['skipped'] > 0:
+                    flash(f'⚠️ {stats["skipped"]} תושבים נדחו! בדוק ב-"דיבאג ETL" למה', 'warning')
+                
+                # Check final person count
+                cur.execute("SELECT COUNT(*) as total FROM person")
+                total = cur.fetchone()
+                flash(f'👥 סה"כ תושבים במערכת: {total["total"]}', 'success')
                 
                 cur.close()
                 conn.close()
@@ -207,12 +363,89 @@ def upload_residents():
                 
             except Exception as e:
                 flash(f'שגיאה בעיבוד הקובץ: {str(e)}', 'danger')
+                print(f"Error in upload_residents: {e}")
+                import traceback
+                traceback.print_exc()
                 return redirect(request.url)
         else:
             flash('סוג קובץ לא נתמך. השתמש ב-CSV או Excel', 'danger')
             return redirect(request.url)
     
     return render_template('upload_residents.html')
+
+
+@app.route('/debug-etl')
+@login_required
+def debug_etl():
+    """Debug ETL process"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        # RAW count
+        cur.execute("SELECT COUNT(*) as count FROM raw_residents_csv")
+        raw_count = cur.fetchone()['count']
+        
+        # RAW sample
+        cur.execute("SELECT * FROM raw_residents_csv LIMIT 1")
+        raw_sample = cur.fetchone()
+        
+        # TEMP count
+        cur.execute("SELECT COUNT(*) as count FROM temp_residents_csv")
+        temp_count = cur.fetchone()['count']
+        
+        # TEMP stats
+        cur.execute("""
+            SELECT 
+                COUNT(*) FILTER (WHERE status = 'אוחד') as merged,
+                COUNT(*) FILTER (WHERE status = 'הופץ') as inserted,
+                COUNT(*) FILTER (WHERE status = 'התאמה חלקית') as partial,
+                COUNT(*) FILTER (WHERE status = 'נדחה') as skipped,
+                COUNT(*) FILTER (WHERE status IS NULL OR status = '') as pending
+            FROM temp_residents_csv
+        """)
+        temp_stats = cur.fetchone()
+        
+        # PERSON count
+        cur.execute("SELECT COUNT(*) as count FROM person")
+        person_count = cur.fetchone()['count']
+        
+        # PERSON sample (last added)
+        cur.execute("SELECT * FROM person ORDER BY personid DESC LIMIT 1")
+        person_sample = cur.fetchone()
+        
+        # Archive records (last 10)
+        cur.execute("""
+            SELECT * FROM person_archive 
+            ORDER BY archived_at DESC 
+            LIMIT 10
+        """)
+        archive_records = cur.fetchall()
+        
+        # Get skipped records sample (if any)
+        cur.execute("""
+            SELECT * FROM temp_residents_csv 
+            WHERE status = 'נדחה'
+            LIMIT 5
+        """)
+        skipped_sample = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return render_template('debug_etl.html',
+                             raw_count=raw_count,
+                             raw_sample=raw_sample,
+                             temp_count=temp_count,
+                             temp_stats=temp_stats,
+                             person_count=person_count,
+                             person_sample=person_sample,
+                             archive_records=archive_records,
+                             skipped_sample=skipped_sample)
+    
+    except Exception as e:
+        flash(f'שגיאה בטעינת נתוני debug: {str(e)}', 'danger')
+        return redirect(url_for('dashboard'))
 
 
 # ============================================================

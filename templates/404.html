@@ -1,5 +1,7 @@
 {% extends "base.html" %}
+
 {% block title %}404 - דף לא נמצא{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6 text-center">
@@ -8,6 +10,9 @@
                 <i class="fas fa-exclamation-triangle fa-5x text-warning mb-4"></i>
                 <h1 class="display-1 fw-bold">404</h1>
                 <h3 class="mb-3">הדף לא נמצא</h3>
+                <p class="text-muted mb-4">
+                    הדף שחיפשת לא קיים או הועבר למקום אחר
+                </p>
                 <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
                     <i class="fas fa-home"></i> חזור ללוח בקרה
                 </a>

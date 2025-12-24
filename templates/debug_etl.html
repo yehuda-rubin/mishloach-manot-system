@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}דיבאג ETL - מערכת ניהול משלוחי מנות{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-bug"></i> דיבאג תהליך ETL
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- RAW table -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">שלב 1: RAW</h5>
+            </div>
+            <div class="card-body">
+                <h3 class="text-center">{{ raw_count }}</h3>
+                <p class="text-center text-muted">שורות ב-raw_residents_csv</p>
+                {% if raw_sample %}
+                <hr>
+                <h6>דוגמה:</h6>
+                <small>
+                    <strong>שם:</strong> {{ raw_sample.lastname }}<br>
+                    <strong>רחוב:</strong> {{ raw_sample.streetname }}<br>
+                    <strong>טלפון:</strong> {{ raw_sample.phone }}
+                </small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMP table -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">שלב 2: TEMP</h5>
+            </div>
+            <div class="card-body">
+                <h3 class="text-center">{{ temp_count }}</h3>
+                <p class="text-center text-muted">שורות ב-temp_residents_csv</p>
+                {% if temp_stats %}
+                <hr>
+                <h6>סטטוס:</h6>
+                <ul class="list-unstyled small">
+                    <li>✅ אוחדו: {{ temp_stats.merged or 0 }}</li>
+                    <li>➕ נוספו: {{ temp_stats.inserted or 0 }}</li>
+                    <li>⚠️ התאמה חלקית: {{ temp_stats.partial or 0 }}</li>
+                    <li>❌ נדחו: {{ temp_stats.skipped or 0 }}</li>
+                    <li>⏳ ממתינים: {{ temp_stats.pending or 0 }}</li>
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- PERSON table -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">שלב 3: PERSON</h5>
+            </div>
+            <div class="card-body">
+                <h3 class="text-center">{{ person_count }}</h3>
+                <p class="text-center text-muted">סה"כ תושבים במערכת</p>
+                {% if person_sample %}
+                <hr>
+                <h6>דוגמה אחרונה:</h6>
+                <small>
+                    <strong>קוד:</strong> {{ person_sample.personid }}<br>
+                    <strong>שם:</strong> {{ person_sample.lastname }} {{ person_sample.father_name }}<br>
+                    <strong>רחוב:</strong> {{ person_sample.streetcode }}
+                </small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if skipped_sample %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> דוגמאות תושבים שנדחו
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>שם משפחה</th>
+                                <th>שם פרטי</th>
+                                <th>רחוב</th>
+                                <th>מס' בניין</th>
+                                <th>מס' דירה</th>
+                                <th>טלפון</th>
+                                <th>הערה</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rec in skipped_sample %}
+                            <tr>
+                                <td>{% if not rec.lastname or rec.lastname|trim == '' %}<span class="badge bg-danger">❌ חסר</span>{% else %}{{ rec.lastname }}{% endif %}</td>
+                                <td>{% if not rec.father_name or rec.father_name|trim == '' %}<span class="badge bg-danger">❌ חסר</span>{% else %}{{ rec.father_name }}{% endif %}</td>
+                                <td>{% if not rec.streetname or rec.streetname|trim == '' %}<span class="badge bg-danger">❌ חסר</span>{% else %}{{ rec.streetname }}{% endif %}</td>
+                                <td>{% if not rec.buildingnumber or rec.buildingnumber|trim == '' %}<span class="badge bg-danger">❌ חסר</span>{% else %}{{ rec.buildingnumber }}{% endif %}</td>
+                                <td>{% if not rec.apartmentnumber or rec.apartmentnumber|trim == '' %}<span class="badge bg-danger">❌ חסר</span>{% else %}{{ rec.apartmentnumber }}{% endif %}</td>
+                                <td>{{ rec.phone or rec.mobile or '-' }}</td>
+                                <td><small>{{ rec.status }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-warning mt-3 mb-0">
+                    <strong>למה נדחו?</strong>
+                    <p>הנתונים הבאים חובה למשלוח מדויק:</p>
+                    <ul class="mb-0">
+                        <li><strong>שם משפחה</strong> - לזיהוי המשפחה</li>
+                        <li><strong>שם פרטי</strong> - לזיהוי האדם</li>
+                        <li><strong>רחוב</strong> - לזיהוי המיקום</li>
+                        <li><strong>מספר בניין</strong> - לזיהוי הבניין</li>
+                        <li><strong>מספר דירה</strong> - לזיהוי הדירה</li>
+                    </ul>
+                    <p class="mt-2 mb-0"><strong>בלי כתובת מלאה אי אפשר לוודא שהמשלוח מגיע לאדם הנכון!</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-archive"></i> היסטוריית עיבוד (10 אחרונים)
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if archive_records %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>שם משפחה</th>
+                                <th>שם האב</th>
+                                <th>רחוב</th>
+                                <th>טלפון</th>
+                                <th>סטטוס</th>
+                                <th>הערה</th>
+                                <th>זמן</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rec in archive_records %}
+                            <tr>
+                                <td>{{ rec.lastname }}</td>
+                                <td>{{ rec.father_name }}</td>
+                                <td>{{ rec.streetcode }}</td>
+                                <td>{{ rec.phone }}</td>
+                                <td>
+                                    {% if rec.status == 'inserted' %}
+                                    <span class="badge bg-success">{{ rec.status }}</span>
+                                    {% elif rec.status == 'merged' %}
+                                    <span class="badge bg-primary">{{ rec.status }}</span>
+                                    {% elif rec.status == 'partial_match' %}
+                                    <span class="badge bg-warning">{{ rec.status }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ rec.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td><small>{{ rec.status_note }}</small></td>
+                                <td><small>{{ rec.archived_at.strftime('%H:%M:%S') if rec.archived_at else '' }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">אין רשומות בארכיון</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12 text-center">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> חזור ללוח בקרה
+        </a>
+    </div>
+</div>
+{% endblock %}

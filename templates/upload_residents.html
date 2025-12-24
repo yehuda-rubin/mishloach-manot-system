@@ -30,26 +30,48 @@
                         </div>
                     </div>
                     
-                    <div class="alert alert-info">
+                    <div class="alert alert-info alert-static">
                         <h6 class="alert-heading">
                             <i class="fas fa-info-circle"></i> דרישות הקובץ
                         </h6>
-                        <p class="mb-2">הקובץ חייב לכלול את העמודות הבאות:</p>
-                        <ul class="mb-0">
-                            <li><code>code</code> - קוד תושב (אופציונלי)</li>
-                            <li><code>lastname</code> - שם משפחה</li>
-                            <li><code>father_name</code> - שם האב</li>
-                            <li><code>mother_name</code> - שם האם</li>
-                            <li><code>streetname</code> - שם רחוב</li>
-                            <li><code>buildingnumber</code> - מספר בניין</li>
-                            <li><code>entrance</code> - כניסה</li>
-                            <li><code>apartmentnumber</code> - מספר דירה</li>
-                            <li><code>phone</code> - טלפון</li>
-                            <li><code>mobile</code> - נייד</li>
-                            <li><code>mobile2</code> - נייד 2 (אופציונלי)</li>
-                            <li><code>email</code> - דוא"ל (אופציונלי)</li>
-                            <li><code>standing_order</code> - דרגת הזמנה קבועה (0-3)</li>
-                        </ul>
+                        <p class="mb-2"><strong>המערכת תומכת בשמות עמודות שונים (מיפוי אוטומטי)!</strong></p>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-danger">שדות חובה (חייבים להיות מלאים):</h6>
+                                <ul>
+                                    <li><code>lastname</code> / <code>last_name</code> - <strong>שם משפחה</strong> 🔴</li>
+                                    <li><code>father_name</code> / <code>father_first_name</code> - <strong>שם פרטי</strong> 🔴</li>
+                                    <li><code>streetname</code> / <code>street</code> - <strong>רחוב</strong> 🔴</li>
+                                    <li><code>buildingnumber</code> / <code>building_number</code> - <strong>מספר בניין</strong> 🔴</li>
+                                    <li><code>apartmentnumber</code> / <code>apartment</code> - <strong>מספר דירה</strong> 🔴</li>
+                                </ul>
+                                <p class="small text-muted mb-0">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    <strong>בלי כתובת מלאה אי אפשר לזהות בוודאות את האדם הנכון למשלוח!</strong>
+                                </p>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="text-success">שדות אופציונליים:</h6>
+                                <ul>
+                                    <li><code>code</code> / <code>id</code> - קוד תושב</li>
+                                    <li><code>mother_name</code> / <code>mother_first_name</code> - שם האם</li>
+                                    <li><code>entrance</code> - כניסה</li>
+                                    <li><code>phone</code> / <code>home_phone</code> - טלפון</li>
+                                    <li><code>mobile</code> / <code>cell</code> - נייד</li>
+                                    <li><code>mobile2</code> - נייד 2</li>
+                                    <li><code>email</code> - דוא"ל</li>
+                                    <li><code>standing_order</code> / <code>rating</code> - דרגת הזמנה (0-3)</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-success mt-2 mb-0">
+                            <i class="fas fa-magic"></i> 
+                            <strong>טיפ:</strong> המערכת מזהה אוטומטית שמות עמודות שונים! 
+                            לא צריך לשנות את הקובץ שלך.
+                        </div>
                     </div>
                     
                     <div class="d-grid gap-2">
