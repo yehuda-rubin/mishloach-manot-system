@@ -1,132 +1,21 @@
 -- ========================================
--- 02_fixes.sql
--- תיקונים ושיפורים לסכמה
+-- תיקון מהיר - בעיית status='ממתין'
 -- ========================================
 
--- יצירת רחוב fallback (999) למקרים בהם לא נמצא רחוב
-INSERT INTO public.street (streetcode, streetname)
-VALUES (999, 'Unknown Street / רחוב לא ידוע')
-ON CONFLICT (streetcode) DO NOTHING;
+\echo '🔧 מתקן את בעיית ממתין...'
 
--- ייצור טבלת משתמשים למערכת האימות
-CREATE TABLE IF NOT EXISTS public.app_users (
-    user_id SERIAL PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    last_login TIMESTAMP
-);
+-- שלב 1: עדכון שורות קיימות עם status='ממתין' ל-NULL
+UPDATE temp_residents_csv 
+SET status = NULL 
+WHERE status = 'ממתין';
 
--- הוספת קולום batch_id לטבלת outerapporder למעקב אחר העלאות
-ALTER TABLE public.outerapporder 
-ADD COLUMN IF NOT EXISTS batch_id UUID DEFAULT gen_random_uuid();
+\echo '✅ עודכנו שורות עם status=ממתין ל-NULL'
 
-ALTER TABLE public.outerapporder 
-ADD COLUMN IF NOT EXISTS uploaded_by TEXT;
+-- שלב 2: עדכון הפונקציה לתמוך ב-'ממתין' בעתיד
+DROP FUNCTION IF EXISTS public.process_residents_csv();
 
--- הוספת אינדקס לשיפור ביצועים
-CREATE INDEX IF NOT EXISTS idx_order_sender ON public."Order"(delivery_sender_id);
-CREATE INDEX IF NOT EXISTS idx_order_getter ON public."Order"(delivery_getter_id);
-CREATE INDEX IF NOT EXISTS idx_order_date ON public."Order"(order_date);
-CREATE INDEX IF NOT EXISTS idx_outerapporder_status ON public.outerapporder(status);
-
--- ייצור טריגר לעדכון אוטומטי של autoreturn
-CREATE OR REPLACE FUNCTION trigger_autoreturn() RETURNS TRIGGER AS $$
-BEGIN
-    -- כשנוצרת הזמנה חדשה, הפעל autoreturn אם רלוונטי
-    IF NEW.origin_type != 'autoreturn' THEN
-        PERFORM apply_autoreturn_from_outer(NEW.id);
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS after_order_insert ON public."Order";
-CREATE TRIGGER after_order_insert
-    AFTER INSERT ON public."Order"
-    FOR EACH ROW
-    EXECUTE FUNCTION trigger_autoreturn();
-
--- ========================================
--- פונקציות משופרות שמחזירות ספירה
--- ========================================
-
--- מחיקת הפונקציה הישנה כדי למנוע שגיאות
-DROP FUNCTION IF EXISTS "public"."raw_to_temp_stage"();
-
--- גרסה משופרת של raw_to_temp_stage שמחזירה מספר שורות
-CREATE FUNCTION "public"."raw_to_temp_stage"() RETURNS INTEGER
-    LANGUAGE "plpgsql"
-    AS $_$
-DECLARE
-    rows_inserted INTEGER;
-BEGIN
-  -- ניקוי טבלת TEMP לפני טעינה חדשה
-  TRUNCATE TABLE public.temp_residents_csv RESTART IDENTITY;
-
-  -- שלב 1: רישום רחובות חדשים שלא קיימים בטבלת street ללוג
-  INSERT INTO public.missing_streets_log (streetname)
-  SELECT DISTINCT TRIM(r.streetname)
-  FROM public.raw_residents_csv r
-  WHERE NOT EXISTS (
-      SELECT 1 FROM public.street s
-      WHERE LOWER(TRIM(s.streetname)) = LOWER(TRIM(r.streetname))
-  )
-  AND TRIM(r.streetname) IS NOT NULL
-  AND TRIM(r.streetname) != '';
-
-  -- שלב 2: הוספת רחובות חדשים אוטומטית
-  INSERT INTO public.street (streetname)
-  SELECT DISTINCT TRIM(r.streetname)
-  FROM public.raw_residents_csv r
-  WHERE TRIM(r.streetname) IS NOT NULL 
-    AND TRIM(r.streetname) != ''
-    AND NOT EXISTS (
-        SELECT 1 FROM public.street s 
-        WHERE LOWER(TRIM(s.streetname)) = LOWER(TRIM(r.streetname))
-    )
-  ON CONFLICT (streetcode) DO NOTHING;
-  
-  -- שלב 3: העתקת נתונים ל-TEMP עם ה-streetcode הנכון
-  INSERT INTO public.temp_residents_csv (
-      code, lastname, father_name, mother_name,
-      streetcode, streetname, buildingnumber, entrance, apartmentnumber,
-      phone, mobile, mobile2, email, standing_order
-  )
-  SELECT
-      CASE 
-          WHEN r.code IS NOT NULL AND TRIM(r.code) != '' 
-          THEN CAST(TRIM(r.code) AS INTEGER)
-          ELSE NULL 
-      END,
-      TRIM(r.lastname),
-      TRIM(r.father_name),
-      TRIM(r.mother_name),
-      COALESCE(s.streetcode, 999),  -- ✅ Fallback ל-999 אם הרחוב לא נמצא
-      TRIM(r.streetname),
-      TRIM(r.buildingnumber),
-      TRIM(r.entrance),
-      TRIM(r.apartmentnumber),
-      TRIM(r.phone),
-      TRIM(r.mobile),
-      TRIM(r.mobile2),
-      normalize_email(r.email),
-      COALESCE(r.standing_order, 0)
-  FROM public.raw_residents_csv r
-  LEFT JOIN public.street s  -- ✅ LEFT JOIN במקום INNER JOIN כדי למנוע אובדן נתונים!
-      ON LOWER(TRIM(s.streetname)) = LOWER(TRIM(r.streetname));
-
-  GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-  RETURN rows_inserted;
-END;
-$_$;
-
--- גרסה משופרת של process_residents_csv שמחזירה מספר שורות מעובדות
--- מחיקת הפונקציה הישנה כדי למנוע שגיאות
-DROP FUNCTION IF EXISTS "public"."process_residents_csv"();
-
-CREATE FUNCTION "public"."process_residents_csv"() RETURNS INTEGER
-    LANGUAGE "plpgsql"
+CREATE FUNCTION public.process_residents_csv() RETURNS INTEGER
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     rec RECORD;
@@ -242,9 +131,6 @@ BEGIN
 
         ------------------------------------------------------------------
         -- 🔍 בדיקה 3: נתונים חסרים → skipped
-        -- דרישות חובה: lastname, father_name, streetname, buildingnumber, apartmentnumber
-        -- (כדי לזהות בוודאות את האדם הנכון למשלוח)
-        -- שים לב: רחובות חדשים מתווספים אוטומטית, אז לא צריך לבדוק streetcode=999
         ------------------------------------------------------------------
         ELSIF rec.lastname IS NULL OR TRIM(rec.lastname) = '' OR 
               rec.father_name IS NULL OR TRIM(rec.father_name) = '' OR
@@ -272,7 +158,6 @@ BEGIN
                     missing_fields := missing_fields || 'מספר דירה, ';
                 END IF;
                 
-                -- Remove trailing comma and space
                 missing_fields := RTRIM(missing_fields, ', ');
 
                 INSERT INTO person_archive(
@@ -346,7 +231,9 @@ BEGIN
 END;
 $$;
 
-DO $$
-BEGIN
-    RAISE NOTICE '✅ Fixes applied successfully!';
-END $$;
+\echo '✅ הפונקציה עודכנה לתמוך ב-status=ממתין'
+
+-- שלב 3: הרץ את העיבוד עכשיו
+SELECT process_residents_csv() AS rows_processed;
+
+\echo '✅ תיקון הושלם!'

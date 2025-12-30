@@ -417,7 +417,7 @@ def debug_etl():
         # Archive records (last 10)
         cur.execute("""
             SELECT * FROM person_archive 
-            ORDER BY archived_at DESC 
+            ORDER BY created_at DESC 
             LIMIT 10
         """)
         archive_records = cur.fetchall()

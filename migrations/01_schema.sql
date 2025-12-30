@@ -85,7 +85,6 @@ DECLARE
   v_rows_this_rec INT;
   v_total_inserted INT := 0;
   v_delivery_price NUMERIC(10,2);
-  v_inserted_order_id INT;
 BEGIN
   -- 🧩 שלב 1: שלוף מחיר משלוח או קבע ברירת מחדל 10.00
   SELECT COALESCE(
@@ -172,8 +171,8 @@ BEGIN
         rec.package_size
     FROM ints i
     WHERE EXISTS (SELECT 1 FROM public.person p WHERE p.personid = i.invitee_id)
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO v_inserted_order_id;
+    ON CONFLICT DO NOTHING;
+    -- הוסר RETURNING INTO כי מוחזרות מספר שורות
 
     GET DIAGNOSTICS v_rows_this_rec = ROW_COUNT;
 
@@ -192,10 +191,7 @@ BEGIN
 
       v_total_inserted := v_total_inserted + v_rows_this_rec;
       
-      -- הפעלת autoreturn עבור כל הזמנה שנוצרה
-      IF v_inserted_order_id IS NOT NULL THEN
-        PERFORM public.apply_autoreturn_from_outer(v_inserted_order_id);
-      END IF;
+      -- הערה: autoreturn מופעל באמצעות טריגר על טבלת Order
     END IF;
   END LOOP;
 
@@ -323,10 +319,20 @@ ALTER FUNCTION "public"."normalize_invitees"("invitees" "text") OWNER TO "postgr
 CREATE OR REPLACE FUNCTION "public"."normalize_sender_code"("sender" "text") RETURNS integer
     LANGUAGE "plpgsql"
     AS $$
+DECLARE
+  v_personid INT;
 BEGIN
-  RETURN sender::int;
-EXCEPTION WHEN invalid_text_representation THEN
-  RETURN NULL;
+  -- המרת sender_code ל-personid
+  SELECT personid INTO v_personid
+  FROM person
+  WHERE code = sender::int;
+  
+  RETURN v_personid;
+EXCEPTION 
+  WHEN invalid_text_representation THEN
+    RETURN NULL;
+  WHEN OTHERS THEN
+    RETURN NULL;
 END;
 $$;
 
