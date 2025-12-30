@@ -205,9 +205,9 @@ def upload_residents():
                     
                     # Various forms of entrance
                     'entrance': 'entrance',
-                    'apartment_number': 'entrance',
                     
                     # Various forms of apartment number
+                    'apartment_number': 'apartmentnumber',
                     'apartmentnumber': 'apartmentnumber',
                     'apartment': 'apartmentnumber',
                     'flat_number': 'apartmentnumber',
@@ -538,6 +538,71 @@ def upload_orders():
             return redirect(request.url)
     
     return render_template('upload_orders.html')
+
+
+@app.route('/import-orders-direct', methods=['GET', 'POST'])
+@login_required
+def import_orders_direct():
+    """Import orders directly from CSV (order_code + guest_list)"""
+    from app.import_orders import import_orders_from_csv
+    
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('לא נבחר קובץ', 'danger')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('לא נבחר קובץ', 'danger')
+            return redirect(request.url)
+        
+        if file and Config.allowed_file(file.filename):
+            try:
+                conn = get_db_connection()
+                stats = import_orders_from_csv(file, conn)
+                conn.close()
+                
+                # Build success message
+                messages = [
+                    f'✅ {stats["total_orders"]} הזמנות עובדו',
+                    f'✅ {stats["successful_pairs"]} זוגות שולח-מקבל נוצרו בהצלחה!',
+                ]
+                
+                if stats['failed_pairs'] > 0:
+                    messages.append(f'⚠️ {stats["failed_pairs"]} זוגות נכשלו')
+                
+                if stats['missing_senders']:
+                    count = len(stats['missing_senders'])
+                    sample = ', '.join(str(c) for c in stats['missing_senders'][:5])
+                    if count > 5:
+                        sample += f'... ועוד {count-5}'
+                    messages.append(f'⚠️ שולחים חסרים ({count}): {sample}')
+                
+                if stats['missing_receivers']:
+                    count = len(stats['missing_receivers'])
+                    sample = ', '.join(str(c) for c in stats['missing_receivers'][:5])
+                    if count > 5:
+                        sample += f'... ועוד {count-5}'
+                    messages.append(f'⚠️ מקבלים חסרים ({count}): {sample}')
+                
+                for msg in messages:
+                    if '✅' in msg:
+                        flash(msg, 'success')
+                    elif '⚠️' in msg:
+                        flash(msg, 'warning')
+                    else:
+                        flash(msg, 'info')
+                
+                return redirect(url_for('dashboard'))
+                
+            except Exception as e:
+                flash(f'שגיאה בייבוא הזמנות: {str(e)}', 'danger')
+                return redirect(request.url)
+        else:
+            flash('סוג קובץ לא נתמך. השתמש ב-CSV או Excel', 'danger')
+            return redirect(request.url)
+    
+    return render_template('import_orders_direct.html')
 
 
 # ============================================================

@@ -84,11 +84,16 @@ BEGIN
   
   -- שלב 3: העתקת נתונים ל-TEMP עם ה-streetcode הנכון
   INSERT INTO public.temp_residents_csv (
-      lastname, father_name, mother_name,
+      code, lastname, father_name, mother_name,
       streetcode, streetname, buildingnumber, entrance, apartmentnumber,
       phone, mobile, mobile2, email, standing_order
   )
   SELECT
+      CASE 
+          WHEN r.code IS NOT NULL AND TRIM(r.code) != '' 
+          THEN CAST(TRIM(r.code) AS INTEGER)
+          ELSE NULL 
+      END,
       TRIM(r.lastname),
       TRIM(r.father_name),
       TRIM(r.mother_name),
@@ -285,15 +290,28 @@ BEGIN
         ------------------------------------------------------------------
         ELSE
             INSERT INTO person(
-                lastname, father_name, mother_name,
+                code, lastname, father_name, mother_name,
                 streetcode, buildingnumber, entrance, apartmentnumber,
                 phone, mobile, mobile2, email, standing_order
             )
             VALUES (
-                rec.lastname, rec.father_name, rec.mother_name,
+                rec.code, rec.lastname, rec.father_name, rec.mother_name,
                 rec.streetcode, rec.buildingnumber, rec.entrance, rec.apartmentnumber,
                 clean_phone, clean_mobile, clean_mobile2, rec.email, rec.standing_order
             )
+            ON CONFLICT (code) DO UPDATE SET
+                lastname = EXCLUDED.lastname,
+                father_name = EXCLUDED.father_name,
+                mother_name = EXCLUDED.mother_name,
+                streetcode = EXCLUDED.streetcode,
+                buildingnumber = EXCLUDED.buildingnumber,
+                entrance = EXCLUDED.entrance,
+                apartmentnumber = EXCLUDED.apartmentnumber,
+                phone = EXCLUDED.phone,
+                mobile = EXCLUDED.mobile,
+                mobile2 = EXCLUDED.mobile2,
+                email = EXCLUDED.email,
+                standing_order = EXCLUDED.standing_order
             RETURNING personid INTO existing_person;
 
             INSERT INTO person_archive(

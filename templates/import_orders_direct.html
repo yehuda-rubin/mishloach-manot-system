@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}ייבוא הזמנות - מערכת ניהול משלוחי מנות{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-file-import"></i> ייבוא הזמנות
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-gift"></i> ייבוא קובץ הזמנות משלוח מנות
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">בחר קובץ CSV או Excel</label>
+                        <input type="file" class="form-control" id="file" name="file" 
+                               accept=".csv,.xlsx,.xls" required>
+                        <div class="form-text">
+                            קבצים נתמכים: CSV, XLSX, XLS (עד 16MB)
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info alert-static">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle"></i> דרישות הקובץ
+                        </h6>
+                        
+                        <div class="mb-3">
+                            <h6 class="text-danger">שדות חובה:</h6>
+                            <ul>
+                                <li><code>order_code</code> - <strong>קוד משפחת השולח</strong> 🔴</li>
+                                <li><code>guest_list</code> - <strong>רשימת מקבלים</strong> 🔴</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6>פורמט רשימת מקבלים (guest_list):</h6>
+                            <div class="alert alert-light mb-0">
+                                <code>270|364|849|387</code>
+                                <p class="small text-muted mb-0 mt-2">
+                                    קודי המשפחות המופרדים בתו <code>|</code> (pipe)
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            <strong>חשוב!</strong> יש לוודא שכל המשפחות (שולחים ומקבלים) כבר קיימות במאגר התושבים!
+                            <br>העלה תחילה את קובץ המשפחות, ורק אז את קובץ ההזמנות.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-file-import"></i> ייבא הזמנות
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-right"></i> חזור ללוח בקרה
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle"></i> איך זה עובד?
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>שלבי הייבוא:</h6>
+                <ol>
+                    <li class="mb-2">
+                        <strong>קריאת הקובץ</strong>
+                        <p class="small text-muted">המערכת קוראת את קובץ ההזמנות</p>
+                    </li>
+                    <li class="mb-2">
+                        <strong>זיהוי שולחים ומקבלים</strong>
+                        <p class="small text-muted">לכל order_code מוצאת את המשפחה השולחת</p>
+                    </li>
+                    <li class="mb-2">
+                        <strong>פירוק guest_list</strong>
+                        <p class="small text-muted">מפרקת את רשימת המקבלים</p>
+                    </li>
+                    <li class="mb-2">
+                        <strong>יצירת הזמנות</strong>
+                        <p class="small text-muted">יוצרת הזמנה לכל זוג שולח-מקבל</p>
+                    </li>
+                </ol>
+                
+                <div class="alert alert-success">
+                    <h6 class="alert-heading">דוגמה:</h6>
+                    <p class="mb-1"><code>order_code: 1</code></p>
+                    <p class="mb-0"><code>guest_list: 270|364|849</code></p>
+                    <hr>
+                    <p class="small mb-0">
+                        <i class="fas fa-arrow-left"></i> יוצר 3 הזמנות:<br>
+                        • משפחה #1 → משפחה #270<br>
+                        • משפחה #1 → משפחה #364<br>
+                        • משפחה #1 → משפחה #849
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> לתשומת לב
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <strong>לפני ייבוא ההזמנות:</strong>
+                </p>
+                <ul class="mb-0">
+                    <li>וודא שכל המשפחות כבר קיימות במאגר</li>
+                    <li>המשפחות צריכות להיות עם אותם קודים (codes)</li>
+                    <li>הזמנות כפולות לא ייווצרו (נדלגות אוטומטית)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.alert-static {
+    position: relative !important;
+}
+</style>
+{% endblock %}
